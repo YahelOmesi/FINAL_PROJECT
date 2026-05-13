@@ -7,7 +7,7 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
 # parse to (Masekhet, Page, Side, Line)
 def parse_url_location(url_string):
-    #זה רק הדגמה
+
     #define the Regex pattern to capture location details
     pattern = r'Masekhet: (\d+), Page: (\w+), Side: (\w+), Line: (\d+)' 
     match = re.search(pattern, str(url_string)) #actual search
