@@ -84,7 +84,6 @@ def extract_features(group):
     
 
     features = {
-        # שורה לדוגמא
 
         # Hypothesis 1: Emphatic vs Absolute 
         'emphatic_ratio': round((lex_text.count('emphatic') + lex_text.count('determined')) / word_count, 4),
