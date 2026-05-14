@@ -38,48 +38,86 @@ def load_data():
     # return the final merged and processed table
     return df
 
-# ==========================================
-# 2. חילוץ מאפיינים לכל 7 ההשערות
-# ==========================================
-def extract_features(group):
-    # איחוד הטקסטים לחיפוש
-    lex_text = " ".join(group['merged_lexicon'].astype(str).tolist()).lower()
-    meaning_text = " ".join(group['merged_meanings'].astype(str).tolist()).lower()
-    
-    word_count = len(group)
-    if word_count == 0: return pd.Series()
 
-    # חילוץ המדדים
+def extract_features(group):
+
+    # merge the texts for search
+    lex_text = " ".join(group['merged_lexicon'].fillna('').astype(str).tolist()).lower()
+    
+    # Create a list of individual tags (tokens) to handle short tags like 'v' or 'p' accurately
+    lex_tokens = lex_text.split()
+    
+    meaning_text = " ".join(group['merged_meanings'].fillna('').astype(str).tolist()).lower()
+    
+    word_count = len(group) # count num of words in line
+    if word_count == 0: return pd.Series() # security check
+
+    # Define tag groups based on our Lexicon investigation
+    verb_tags = ['verb', 'v', 'peal', 'pael', 'ethpeel', 'ethpaal', 'h)aphel', 'ethpay/w', 'ethpolal', 'quad']
+    function_tags = ['prep', 'preposition', 'p', 'conj', 'conjunction', 'proclitic']
+    
+    # Identify where all the verbs are in the sentence
+    verb_indices = [i for i, t in enumerate(lex_tokens) if t in verb_tags]
+    verb_count_total = len(verb_indices)
+    
+    v_then_noun_count = 0
+    v_then_prep_count = 0
+    
+    # For each verb found, check what is the NEXT tag
+    if verb_count_total > 0:
+        for i in verb_indices:
+            # Safety check: make sure the verb is not the last word in the list
+            if i + 1 < len(lex_tokens):
+                next_tag = lex_tokens[i+1]
+                if next_tag == 'noun':
+                    v_then_noun_count += 1
+                elif next_tag in function_tags:
+                    v_then_prep_count += 1
+        
+        # Calculate ratios relative to total number of verbs
+        v_n_ratio = round(v_then_noun_count / verb_count_total, 4)
+        v_p_ratio = round(v_then_prep_count / verb_count_total, 4)
+    else:
+        v_n_ratio = 0
+        v_p_ratio = 0
+
+    
+
     features = {
-        # השערה 1: מצב שם העצם (Emphatic vs Absolute)
-        'emphatic_ratio': round(lex_text.count('emphatic') / word_count, 4),
+
+        # Hypothesis 1: Emphatic vs Absolute 
+        'emphatic_ratio': round((lex_text.count('emphatic') + lex_text.count('determined')) / word_count, 4),
         'absolute_ratio': round((lex_text.count('abs') + lex_text.count('absolute')) / word_count, 4),
         
-        # השערה 2: מילות תפקוד (מילות יחס וקישור)
-        'function_words_ratio': round((lex_text.count('prep') + lex_text.count('conj')) / word_count, 4),
+        # Hypothesis 2: Prepositions & conjunctions 
+        'function_words_ratio': round(sum(1 for t in lex_tokens if t in function_tags) / word_count, 4),
         
-        # השערה 3: עושר אוצר מילים (Lexical Diversity)
-        'lexical_diversity': round(group['Lema'].nunique() / word_count, 4),
+        # Hypothesis 3: Lexical Diversity
+        # We only trust this metric if the line has more than 3 words. 
+        # Otherwise, we give it a neutral 0.5 value to avoid biasing the model.
+        'lexical_diversity': round(group['Lema'].nunique() / word_count, 4) if word_count > 3 else 0.5,
         
-        # השערה 4: מבנה תחבירי (צפיפות פעלים)
-        'verb_ratio': round(lex_text.count('verb') / word_count, 4),
+        # Hypothesis 4: Verb density
+        'verb_ratio': round(sum(1 for t in lex_tokens if t in verb_tags) / word_count, 4),
         
-        # השערה 5: קול פעיל מול סביל (Passive Voice)
+        # Hypothesis 5: Passive Voice
         'passive_voice_ratio': round((lex_text.count('pass') + lex_text.count('passive')) / word_count, 4),
         
-        # השערה 6: השפעת שפות זרות (Greek vs Persian)
-        'greek_latin_influence': 1 if ('greek' in meaning_text or 'latin' in meaning_text) else 0,
-        'persian_influence': 1 if 'persian' in meaning_text else 0,
+        # Hypothesis 6: Plurality Ratio 
+        'plural_ratio': round((lex_text.count('pl') + lex_text.count('plural')) / word_count, 4),
         
-        # השערה 7: אורך משפט/שורה
+        # Hypothesis 7: Sentence length
         'line_length': word_count,
-        'avg_word_len': round(group['text_transformed'].astype(str).apply(len).mean(), 4)
+        'avg_word_len': round(group['text_transformed'].astype(str).apply(len).mean(), 4),
+
+        # Hypothesis 8: Syntactic Transitions 
+        'v_then_noun_ratio': v_n_ratio,
+        'v_then_prep_ratio': v_p_ratio
     }
+
     return pd.Series(features)
 
-# ==========================================
-# 3. שמירה לאקסל מעוצב עם "פסים" וגבולות
-# ==========================================
+
 def save_styled_excel(df, output_path):
     print("⏳ מייצר קובץ אקסל מעוצב עם גבולות ופסים...")
     writer = pd.ExcelWriter(output_path, engine='openpyxl')
@@ -88,7 +126,7 @@ def save_styled_excel(df, output_path):
     workbook = writer.book
     worksheet = workbook['ResearchData']
     
-    # הגדרת סגנונות
+    #styles
     header_fill = PatternFill(start_color='2C3E50', end_color='2C3E50', fill_type='solid')
     header_font = Font(color='FFFFFF', bold=True)
     thin_border = Border(left=Side(style='thin', color='BDC3C7'), 
@@ -111,10 +149,18 @@ def save_styled_excel(df, output_path):
 
 if __name__ == "__main__":
     raw_df = load_data()
-    print("⏳ מנתח 7 השערות מחקריות...")
+    print("⏳ מנתח 8 השערות מחקריות...")
     group_cols = ['masekhet', 'page', 'side', 'line', 'target']
     final_table = raw_df.groupby(group_cols, group_keys=False).apply(extract_features).reset_index()
     
-    output = os.path.join('Data', 'ready_for_classifier.xlsx')
-    save_styled_excel(final_table, output)
-    print(f"\n✅ הצלחה! הקובץ נוצר בנתיב: {output}")
+    # Setting result paths
+    excel_output = os.path.join('Data', 'ready_for_classifier.xlsx')
+    csv_output = os.path.join('Data', 'ready_for_classifier.csv')
+
+
+    save_styled_excel(final_table, excel_output)
+    final_table.to_csv(csv_output, index=False, encoding='utf-8-sig')
+    
+    print(f"\n✅ הצלחה! נוצרו שני קבצים בתיקיית Data:")
+    print(f"   - אקסל מעוצב: {excel_output}")
+    print(f"   - קובץ CSV למודל: {csv_output}")
