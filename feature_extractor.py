@@ -4,6 +4,11 @@ import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
+# Import the atomically isolated configuration lists from config.py
+from config import (
+    VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
+    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS
+)
 
 # parse to (Masekhet, Page, Side, Line)
 def parse_url_location(url_string):
@@ -47,17 +52,13 @@ def extract_features(group):
     # Create a list of individual tags (tokens) to handle short tags like 'v' or 'p' accurately
     lex_tokens = lex_text.split()
     
-    meaning_text = " ".join(group['merged_meanings'].fillna('').astype(str).tolist()).lower()
+    # meaning_text = " ".join(group['merged_meanings'].fillna('').astype(str).tolist()).lower()
     
     word_count = len(group) # count num of words in line
     if word_count == 0: return pd.Series() # security check
-
-    # Define tag groups based on our Lexicon investigation
-    verb_tags = ['verb', 'v', 'peal', 'pael', 'ethpeel', 'ethpaal', 'h)aphel', 'ethpay/w', 'ethpolal', 'quad']
-    function_tags = ['prep', 'preposition', 'p', 'conj', 'conjunction', 'proclitic']
     
     # Identify where all the verbs are in the sentence
-    verb_indices = [i for i, t in enumerate(lex_tokens) if t in verb_tags]
+    verb_indices = [i for i, t in enumerate(lex_tokens) if t in VERB_TAGS]
     verb_count_total = len(verb_indices)
     
     v_then_noun_count = 0
@@ -69,9 +70,10 @@ def extract_features(group):
             # Safety check: make sure the verb is not the last word in the list
             if i + 1 < len(lex_tokens):
                 next_tag = lex_tokens[i+1]
-                if next_tag == 'noun':
+                # Fixed: Use 'in' to check if the tag belongs to the atomized noun/prep lists
+                if next_tag in NOUN_TAGS:
                     v_then_noun_count += 1
-                elif next_tag in function_tags:
+                elif next_tag in PREPOSITION_TAGS:
                     v_then_prep_count += 1
         
         # Calculate ratios relative to total number of verbs
@@ -86,11 +88,12 @@ def extract_features(group):
     features = {
 
         # Hypothesis 1: Emphatic vs Absolute 
-        'emphatic_ratio': round((lex_text.count('emphatic') + lex_text.count('determined')) / word_count, 4),
-        'absolute_ratio': round((lex_text.count('abs') + lex_text.count('absolute')) / word_count, 4),
+        'emphatic_ratio': round(sum(1 for t in lex_tokens if t in EMPHATIC_STATE_TAGS) / word_count, 4),
+        'absolute_ratio': round(sum(1 for t in lex_tokens if t in ABSOLUTE_STATE_TAGS) / word_count, 4),
         
         # Hypothesis 2: Prepositions & conjunctions 
-        'function_words_ratio': round(sum(1 for t in lex_tokens if t in function_tags) / word_count, 4),
+        # Fixed: Combine both atomized lists to accurately represent function words density
+        'function_words_ratio': round(sum(1 for t in lex_tokens if t in PREPOSITION_TAGS or t in CONJUNCTION_TAGS) / word_count, 4),
         
         # Hypothesis 3: Lexical Diversity
         # We only trust this metric if the line has more than 3 words. 
@@ -98,13 +101,13 @@ def extract_features(group):
         'lexical_diversity': round(group['Lema'].nunique() / word_count, 4) if word_count > 3 else 0.5,
         
         # Hypothesis 4: Verb density
-        'verb_ratio': round(sum(1 for t in lex_tokens if t in verb_tags) / word_count, 4),
+        'verb_ratio': round(sum(1 for t in lex_tokens if t in VERB_TAGS) / word_count, 4),
         
         # Hypothesis 5: Passive Voice
         'passive_voice_ratio': round((lex_text.count('pass') + lex_text.count('passive')) / word_count, 4),
         
         # Hypothesis 6: Plurality Ratio 
-        'plural_ratio': round((lex_text.count('pl') + lex_text.count('plural')) / word_count, 4),
+        'plural_ratio': round(sum(1 for t in lex_tokens if t in PLURAL_TAGS) / word_count, 4),
         
         # Hypothesis 7: Sentence length
         'line_length': word_count,
@@ -119,7 +122,7 @@ def extract_features(group):
 
 
 def save_styled_excel(df, output_path):
-    print("⏳ מייצר קובץ אקסל מעוצב עם גבולות ופסים...")
+    print("Creates a formatted Excel file with borders and stripes...")
     writer = pd.ExcelWriter(output_path, engine='openpyxl')
     df.to_excel(writer, index=False, sheet_name='ResearchData')
     
@@ -149,7 +152,7 @@ def save_styled_excel(df, output_path):
 
 if __name__ == "__main__":
     raw_df = load_data()
-    print("⏳ מנתח 8 השערות מחקריות...")
+    print("Research hypothesis analyzer...")
     group_cols = ['masekhet', 'page', 'side', 'line', 'target']
     final_table = raw_df.groupby(group_cols, group_keys=False).apply(extract_features).reset_index()
     
@@ -161,6 +164,6 @@ if __name__ == "__main__":
     save_styled_excel(final_table, excel_output)
     final_table.to_csv(csv_output, index=False, encoding='utf-8-sig')
     
-    print(f"\n✅ הצלחה! נוצרו שני קבצים בתיקיית Data:")
-    print(f"   - אקסל מעוצב: {excel_output}")
-    print(f"   - קובץ CSV למודל: {csv_output}")
+    print(f"\nSuccess! Two files were created in the 'Data' folder:")
+    print(f"   -The formatted Excel: {excel_output}")
+    print(f"   -CSV file for the model: {csv_output}")
