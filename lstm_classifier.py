@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.utils.class_weight import compute_class_weight
 import os
 
 # 1. Loading and initial processing of the data
@@ -131,24 +132,57 @@ if __name__ == "__main__":
         
         # step 5: Initialize the network architecture
         model = build_model(input_shape)
+
+        # step 5.5: Calculate balanced class weights to handle imbalanced data        
+        classes = np.unique(y_train_flat)
+        weights = compute_class_weight(class_weight='balanced', classes=classes, y=y_train_flat)
+        class_weight_dict = dict(zip(classes, weights))
         
-        # step 6: Train the network
+        print(f"⚖️ Applied balanced class weights: {class_weight_dict}")
+        
+       # step 6: Train the network
         print("\nTraining the LSTM model...")
-        model.fit(
+        history = model.fit(
             X_train, y_train, 
             validation_data=(X_test, y_test), 
             epochs=15, 
-            batch_size=32
-            
+            batch_size=32,
+            class_weight=class_weight_dict,
+            verbose=0 
         )
         
-        # step 7: Evaluate model 
-        print("\nEvaluating model on unseen test data...")
-        predictions = model.predict(X_test)
+        # step 7: Extract custom styled epoch metrics for the final round
+        final_epoch = 14 # Index of the 15th epoch
         
-        # convert sigmoid probabilities (0.0 - 1.0) into discrete choices (0 or 1)
+        print("\n=======================================================")
+        print("📊 FINAL MODEL PERFORMANCE REPORT")
+        print("=======================================================")
+        print("train:")
+        print(f"  accuracy - {history.history['accuracy'][final_epoch]:.4f}")
+        print(f"  loss - {history.history['loss'][final_epoch]:.4f}")
+        print("\ntest:")
+        print(f"  accuracy - {history.history['val_accuracy'][final_epoch]:.4f}")
+        print(f"  loss - {history.history['val_loss'][final_epoch]:.4f}")
+        print("=======================================================")
+
+        # step 8: Generate and display a highly readable Confusion Matrix
+        from sklearn.metrics import confusion_matrix
+        
+        predictions = model.predict(X_test, verbose=0)
         y_pred = (predictions > 0.5).astype(int)
         
-        # print Accuracy, Precision, Recall
-        print("\nComprehensive Classification Report:")
+        # Calculate the actual confusion matrix numbers
+        cm = confusion_matrix(y_test, y_pred)
+        
+        # Extract individual components
+        tn, fp, fn, tp = cm.ravel() # tn=Bavli right, fp=Bavli wrong, fn=Yerushalmi wrong, tp=Yerushalmi right
+        
+        print("\n🔮 VISUAL CONFUSION MATRIX (MAPPING TEST PREDICTIONS):")
+        print("-------------------------------------------------------")
+        print(f"  Actual BAVLI    |  Correctly classified: {tn}  |  Mistakenly called Yerushalmi: {fp}")
+        print(f"  Actual YERUSHALMI |  Mistakenly called Bavli:  {fn}  |  Correctly classified: {tp}")
+        print("-------------------------------------------------------")
+        
+        # step 9: Detailed standard report kept underneath for verification
+        print("\n📋 Comprehensive Classification Metrics Report:")
         print(classification_report(y_test, y_pred, target_names=le.classes_))
