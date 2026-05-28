@@ -7,7 +7,7 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 # Import the atomically isolated configuration lists from config.py
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
-    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS
+    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS
 )
 
 # parse to (Masekhet, Page, Side, Line)
@@ -57,7 +57,12 @@ def extract_features(group):
     word_count = len(group) # count num of words in line
     if word_count == 0: return pd.Series() # security check
     
-    # Identify where all the verbs are in the sentence
+    # Counts for Hypothesis 6 - Plural vs Singular
+    plural_count = sum(1 for t in lex_tokens if t in PLURAL_TAGS)
+    singular_count = sum(1 for t in lex_tokens if t in SINGULAR_TAGS)
+    total_numbers = plural_count + singular_count
+
+    # Counts for Hypothesis 8 - Identify where all the verbs are in the sentence
     verb_indices = [i for i, t in enumerate(lex_tokens) if t in VERB_TAGS]
     verb_count_total = len(verb_indices)
     
@@ -83,8 +88,6 @@ def extract_features(group):
         v_n_ratio = 0
         v_p_ratio = 0
 
-    
-
     features = {
 
         # Hypothesis 1: Emphatic vs Absolute 
@@ -106,9 +109,9 @@ def extract_features(group):
         # Hypothesis 5: Passive Voice
         'passive_voice_ratio': round((lex_text.count('pass') + lex_text.count('passive')) / word_count, 4),
         
-        # Hypothesis 6: Plurality Ratio 
-        'plural_ratio': round(sum(1 for t in lex_tokens if t in PLURAL_TAGS) / word_count, 4),
-        
+        # Hypothesis 6: Plurality Ratio
+        'plural_ratio': round(plural_count / total_numbers, 4) if total_numbers > 0 else 0.0,
+
         # Hypothesis 7: Sentence length
         'line_length': word_count,
         'avg_word_len': round(group['text_transformed'].astype(str).apply(len).mean(), 4),
