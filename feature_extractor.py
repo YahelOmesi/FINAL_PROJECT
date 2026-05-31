@@ -4,7 +4,6 @@ import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
-# Import the atomically isolated configuration lists from config.py
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
     EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES
@@ -15,7 +14,7 @@ def parse_url_location(url_string):
 
     #define the Regex pattern to capture location details
     pattern = r'Masekhet: (\d+), Page: (\w+), Side: (\w+), Line: (\d+)' 
-    match = re.search(pattern, str(url_string)) #actual search
+    match = re.search(pattern, str(url_string))
     if match:
         return pd.Series([match.group(1), match.group(2), match.group(3), match.group(4)])
     #return default values if no match is found to prevent errors
@@ -23,26 +22,26 @@ def parse_url_location(url_string):
 
 def load_data():
     """
-    Loads and concatenates ONLY the explicitly listed tractate CSV files 
+    Loads and concatenates only the explicitly listed tractate CSV files 
     from the Bavli and Yerushalmi directories based on config.py selections.
     """
     dir_bavli = os.path.join('Data', 'csv_Bavli')
     dir_yerushalmi = os.path.join('Data', 'csv_Yerushalmi')
     
-    # 1. Load explicit Bavli files
+    # Load explicit Bavli files
     list_bavli = []
-    print("⏳ Loading selected Bavli tractates...")
+    print("Loading selected Bavli tractates...")
     for filename in BAVLI_TRACTATES:
         full_path = os.path.join(dir_bavli, filename)
         if os.path.exists(full_path):
             print(f"  -> Successfully loaded: {filename}")
             list_bavli.append(pd.read_csv(full_path))
         else:
-            print(f"  ⚠️ Warning: Listed file {filename} was not found in {dir_bavli}")
+            print(f"  Warning!!! Listed file {filename} was not found in {dir_bavli}")
             
     df_b = pd.concat(list_bavli, ignore_index=True) if list_bavli else pd.DataFrame()
     
-    # 2. Load explicit Yerushalmi files
+    # Load explicit Yerushalmi files
     list_yer = []
     print("⏳ Loading selected Yerushalmi tractates...")
     for filename in YERUSHALMI_TRACTATES:
@@ -51,7 +50,7 @@ def load_data():
             print(f"  -> Successfully loaded: {filename}")
             list_yer.append(pd.read_csv(full_path))
         else:
-            print(f"  ⚠️ Warning: Listed file {filename} was not found in {dir_yerushalmi}")
+            print(f"  Warning!!! Listed file {filename} was not found in {dir_yerushalmi}")
             
     df_y = pd.concat(list_yer, ignore_index=True) if list_yer else pd.DataFrame()
 
@@ -76,8 +75,6 @@ def extract_features(group):
     # Create a list of individual tags (tokens) to handle short tags like 'v' or 'p' accurately
     lex_tokens = lex_text.split()
     
-    # meaning_text = " ".join(group['merged_meanings'].fillna('').astype(str).tolist()).lower()
-    
     word_count = len(group) # count num of words in line
     if word_count == 0: return pd.Series() # security check
     
@@ -93,13 +90,12 @@ def extract_features(group):
     v_then_noun_count = 0
     v_then_prep_count = 0
     
-    # For each verb found, check what is the NEXT tag
+    # For each verb found, check what is the next tag
     if verb_count_total > 0:
         for i in verb_indices:
             # Safety check: make sure the verb is not the last word in the list
             if i + 1 < len(lex_tokens):
                 next_tag = lex_tokens[i+1]
-                # Fixed: Use 'in' to check if the tag belongs to the atomized noun/prep lists
                 if next_tag in NOUN_TAGS:
                     v_then_noun_count += 1
                 elif next_tag in PREPOSITION_TAGS:
@@ -119,7 +115,6 @@ def extract_features(group):
         'absolute_ratio': round(sum(1 for t in lex_tokens if t in ABSOLUTE_STATE_TAGS) / word_count, 4),
         
         # Hypothesis 2: Prepositions & conjunctions 
-        # Fixed: Combine both atomized lists to accurately represent function words density
         'function_words_ratio': round(sum(1 for t in lex_tokens if t in PREPOSITION_TAGS or t in CONJUNCTION_TAGS) / word_count, 4),
         
         # Hypothesis 3: Lexical Diversity
