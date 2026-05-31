@@ -8,7 +8,7 @@ from config import (
     PLURAL_TAGS, SINGULAR_TAGS, ADJECTIVE_TAGS, ADVERB_TAGS,
     PERSONAL_PRONOUN_TAGS, PRONOMINAL_SUFFIX_TAGS, NUMERAL_TAGS,
     INTERJECTION_TAGS, UNRESOLVED_TEXT_TAGS, MANUSCRIPT_GAP_TAGS,
-    CAL_SYSTEM_METADATA_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES
+    CAL_SYSTEM_METADATA_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES, DATABASE_ERROR_TAGS, WEB_LEAKAGE_TAGS
 )
 
 # 1. Load ONLY the explicitly listed files for the audit
@@ -56,13 +56,15 @@ m_inter = [t for t in unique_tags if t in INTERJECTION_TAGS]
 m_unres = [t for t in unique_tags if t in UNRESOLVED_TEXT_TAGS]
 m_gaps = [t for t in unique_tags if t in MANUSCRIPT_GAP_TAGS]
 m_meta = [t for t in unique_tags if t in CAL_SYSTEM_METADATA_TAGS]
+m_errors = [t for t in unique_tags if t in DATABASE_ERROR_TAGS]
+m_leak = [t for t in unique_tags if t in WEB_LEAKAGE_TAGS]
 
 total_mapped_tags = (
     len(m_verbs) + len(m_nouns) + len(m_preps) + len(m_conjs) +
     len(m_emph) + len(m_abs) + len(m_const) + len(m_plur) +
     len(m_sing) + len(m_adj) + len(m_adv) + len(m_pron) +
     len(m_suff) + len(m_num) + len(m_inter) + len(m_unres) +
-    len(m_gaps) + len(m_meta)
+    len(m_gaps) + len(m_meta) + len(m_errors) + len(m_leak) 
 )
 
 # 5. Compile all configurations into a single list to find unmapped leftovers
@@ -72,7 +74,7 @@ all_lists = (
     PLURAL_TAGS + SINGULAR_TAGS + ADJECTIVE_TAGS + ADVERB_TAGS +
     PERSONAL_PRONOUN_TAGS + PRONOMINAL_SUFFIX_TAGS + NUMERAL_TAGS +
     INTERJECTION_TAGS + UNRESOLVED_TEXT_TAGS + MANUSCRIPT_GAP_TAGS +
-    CAL_SYSTEM_METADATA_TAGS
+    CAL_SYSTEM_METADATA_TAGS + DATABASE_ERROR_TAGS + WEB_LEAKAGE_TAGS
 )
 unmapped_tags = [t for t in unique_tags if t not in all_lists]
 
