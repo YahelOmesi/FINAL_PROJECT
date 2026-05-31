@@ -7,7 +7,7 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 # Import the atomically isolated configuration lists from config.py
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
-    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS
+    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES
 )
 
 # parse to (Masekhet, Page, Side, Line)
@@ -22,25 +22,49 @@ def parse_url_location(url_string):
     return pd.Series(['0', '0', '0', '0']) 
 
 def load_data():
-
-    #creating path to files
-    path_b = os.path.join('Data', 'csv_Bavli', 'df_hor_csv.csv')
-    path_y = os.path.join('Data', 'csv_Yerushalmi', 'df_yer_hor_csv.csv')
+    """
+    Loads and concatenates ONLY the explicitly listed tractate CSV files 
+    from the Bavli and Yerushalmi directories based on config.py selections.
+    """
+    dir_bavli = os.path.join('Data', 'csv_Bavli')
+    dir_yerushalmi = os.path.join('Data', 'csv_Yerushalmi')
     
-    #loading into DataFrame
-    df_b = pd.read_csv(path_b) 
-    df_y = pd.read_csv(path_y)
-
-    #target classes
-    df_b['target'], df_y['target'] = 'Bavli', 'Yerushalmi'
+    # 1. Load explicit Bavli files
+    list_bavli = []
+    print("⏳ Loading selected Bavli tractates...")
+    for filename in BAVLI_TRACTATES:
+        full_path = os.path.join(dir_bavli, filename)
+        if os.path.exists(full_path):
+            print(f"  -> Successfully loaded: {filename}")
+            list_bavli.append(pd.read_csv(full_path))
+        else:
+            print(f"  ⚠️ Warning: Listed file {filename} was not found in {dir_bavli}")
+            
+    df_b = pd.concat(list_bavli, ignore_index=True) if list_bavli else pd.DataFrame()
     
-    #concatenate both dataset
+    # 2. Load explicit Yerushalmi files
+    list_yer = []
+    print("⏳ Loading selected Yerushalmi tractates...")
+    for filename in YERUSHALMI_TRACTATES:
+        full_path = os.path.join(dir_yerushalmi, filename)
+        if os.path.exists(full_path):
+            print(f"  -> Successfully loaded: {filename}")
+            list_yer.append(pd.read_csv(full_path))
+        else:
+            print(f"  ⚠️ Warning: Listed file {filename} was not found in {dir_yerushalmi}")
+            
+    df_y = pd.concat(list_yer, ignore_index=True) if list_yer else pd.DataFrame()
+
+    # target classes
+    if not df_b.empty: df_b['target'] = 'Bavli'
+    if not df_y.empty: df_y['target'] = 'Yerushalmi'
+    
+    # concatenate both dataset
     df = pd.concat([df_b, df_y], ignore_index=True)
 
-    #extract 'url' to 4 distinct location columns
+    # extract 'url' to 4 distinct location columns
     df[['masekhet', 'page', 'side', 'line']] = df['url'].apply(parse_url_location)
 
-    # return the final merged and processed table
     return df
 
 

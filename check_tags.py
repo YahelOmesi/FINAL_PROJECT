@@ -8,13 +8,26 @@ from config import (
     PLURAL_TAGS, SINGULAR_TAGS, ADJECTIVE_TAGS, ADVERB_TAGS,
     PERSONAL_PRONOUN_TAGS, PRONOMINAL_SUFFIX_TAGS, NUMERAL_TAGS,
     INTERJECTION_TAGS, UNRESOLVED_TEXT_TAGS, MANUSCRIPT_GAP_TAGS,
-    CAL_SYSTEM_METADATA_TAGS
+    CAL_SYSTEM_METADATA_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES
 )
 
-# 1. Load the raw datasets and concatenate them into a single DataFrame
-path_b = os.path.join('Data', 'csv_Bavli', 'df_hor_csv.csv')
-path_y = os.path.join('Data', 'csv_Yerushalmi', 'df_yer_hor_csv.csv')
-df = pd.concat([pd.read_csv(path_b), pd.read_csv(path_y)], ignore_index=True)
+# 1. Load ONLY the explicitly listed files for the audit
+dir_bavli = os.path.join('Data', 'csv_Bavli')
+dir_yerushalmi = os.path.join('Data', 'csv_Yerushalmi')
+
+all_dfs = []
+
+for filename in BAVLI_TRACTATES:
+    full_path = os.path.join(dir_bavli, filename)
+    if os.path.exists(full_path):
+        all_dfs.append(pd.read_csv(full_path))
+
+for filename in YERUSHALMI_TRACTATES:
+    full_path = os.path.join(dir_yerushalmi, filename)
+    if os.path.exists(full_path):
+        all_dfs.append(pd.read_csv(full_path))
+
+df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
 
 # 2. Extract all lexicon text, normalize to lowercase, and split into individual tokens
 all_lex_text = " ".join(df['merged_lexicon'].fillna('').astype(str).tolist()).lower()

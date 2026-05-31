@@ -1,4 +1,10 @@
 # ==============================================================================
+# TRACTATES SELECTION: Explicitly define which files to include in the research
+# ==============================================================================
+BAVLI_TRACTATES = ['df_hor_csv.csv', 'df_hag_csv.csv', 'df_yom_csv.csv', 'df_rh_csv.csv']
+YERUSHALMI_TRACTATES = ['df_yer_hor_csv.csv', 'df_yer_hag_csv.csv', 'df_yer_yom_csv.csv', 'df_yer_rh_csv.csv']
+
+# ==============================================================================
 # GLOBAL CONFIGURATION: Exhaustive and Atomically Isolated Tag Mapping (46 tags)
 # Every linguistic definition is isolated into its own dedicated constant array.
 # ==============================================================================
