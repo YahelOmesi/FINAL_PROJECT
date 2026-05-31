@@ -7,7 +7,7 @@ from config import (
     PLURAL_TAGS, SINGULAR_TAGS, ADJECTIVE_TAGS, ADVERB_TAGS,
     PERSONAL_PRONOUN_TAGS, PRONOMINAL_SUFFIX_TAGS, NUMERAL_TAGS,
     INTERJECTION_TAGS, UNRESOLVED_TEXT_TAGS, MANUSCRIPT_GAP_TAGS,
-    BAVLI_TRACTATES, YERUSHALMI_TRACTATES, IRRELEVANT_TAGS
+    BAVLI_TRACTATES, YERUSHALMI_TRACTATES, IRRELEVANT_TAGS,PASSIVE_VERB_TAGS
 )
 
 # Load only the explicitly listed files for the audit
@@ -38,6 +38,7 @@ total_unique_count = len(unique_tags)
 
 # Map the unique tags into their respective configurations
 m_verbs = [t for t in unique_tags if t in VERB_TAGS]
+m_passive = [t for t in unique_tags if t in PASSIVE_VERB_TAGS]
 m_nouns = [t for t in unique_tags if t in NOUN_TAGS]
 m_preps = [t for t in unique_tags if t in PREPOSITION_TAGS]
 m_conjs = [t for t in unique_tags if t in CONJUNCTION_TAGS]
@@ -82,7 +83,7 @@ print("========================================================")
 print(f"Total Unique Tags Found in Database: {total_unique_count}")
 print(f"Total Tags Successfully Mapped:      {total_mapped_tags}")
 print("-----------------------------------------------------------")
-print(f" -> Verbs:              {len(m_verbs)} | Nouns:               {len(m_nouns)}")
+print(f" -> Verbs:               {len(m_verbs)} (Passive: {len(m_passive)}) | Nouns:               {len(m_nouns)}")
 print(f" -> Prepositions:        {len(m_preps)} | Conjunctions:        {len(m_conjs)}")
 print(f" -> Emphatic States:     {len(m_emph)} | Absolute States:     {len(m_abs)} | Construct States: {len(m_const)}")
 print(f" -> Plurals:             {len(m_plur)} | Singulars:           {len(m_sing)}")

@@ -5,6 +5,7 @@ YERUSHALMI_TRACTATES = ['df_yer_hor_csv.csv', 'df_yer_hag_csv.csv', 'df_yer_yom_
 # GLOBAL CONFIGURATION: Global mapping of tags, each language definition is isolated to its own dedicated set of constants.
 VERB_TAGS = ['verb', 'v', 'peal', 'pael', 'ethpeel', 'ethpaal', '(h)aphel', 'ethpay/w', 'ethpolal,', 'quad','ethpalpal', 'ettaphal', 'palpel'] # פעלים
 NOUN_TAGS = ['noun', 'n', 'nou', 'name', 'proper', 'geographic', 'geographical'] # שמות עצם
+PASSIVE_VERB_TAGS = ['ethpeel', 'ethpaal', 'ettaphal', 'ethpay/w', 'ethpolal,', 'ethpalpal'] # פעלים סבילים
 
 PREPOSITION_TAGS = ['prep', 'preposition', 'p', 'proclitic'] # מילות יחס ואותיות יחס
 CONJUNCTION_TAGS = ['conj', 'conjunction'] # מילות קישור וחיבור

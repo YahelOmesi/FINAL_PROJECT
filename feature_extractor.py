@@ -6,7 +6,7 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
-    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES
+    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES,PASSIVE_VERB_TAGS
 )
 
 # parse to (Masekhet, Page, Side, Line)
@@ -43,7 +43,7 @@ def load_data():
     
     # Load explicit Yerushalmi files
     list_yer = []
-    print("⏳ Loading selected Yerushalmi tractates...")
+    print("Loading selected Yerushalmi tractates...")
     for filename in YERUSHALMI_TRACTATES:
         full_path = os.path.join(dir_yerushalmi, filename)
         if os.path.exists(full_path):
@@ -126,8 +126,8 @@ def extract_features(group):
         'verb_ratio': round(sum(1 for t in lex_tokens if t in VERB_TAGS) / word_count, 4),
         
         # Hypothesis 5: Passive Voice
-        'passive_voice_ratio': round((lex_text.count('pass') + lex_text.count('passive')) / word_count, 4),
-        
+        'passive_voice_ratio': round(sum(1 for t in lex_tokens if t in PASSIVE_VERB_TAGS) / word_count, 4),        
+
         # Hypothesis 6: Plurality Ratio
         'plural_ratio': round(plural_count / total_numbers, 4) if total_numbers > 0 else 0.0,
 
