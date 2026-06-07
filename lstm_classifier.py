@@ -73,10 +73,10 @@ def build_model(input_shape):
     model = Sequential()
     
     # Adding the core LSTM layer to process the "seq_length"-row text windows
-    model.add(LSTM(units=64, input_shape=input_shape, return_sequences=False))
+    model.add(LSTM(units=32, input_shape=input_shape, return_sequences=False))
     
     # Regularization layer to prevent the model from memorizing the data
-    model.add(Dropout(rate=0.2))
+    model.add(Dropout(rate=0.3))
     
     # Final layer with a sigmoid function to output a probability between 0 and 1
     model.add(Dense(units=1, activation='sigmoid'))
