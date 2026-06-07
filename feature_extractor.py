@@ -5,8 +5,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
 from config import (
-    VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
-    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS,BAVLI_TRACTATES, YERUSHALMI_TRACTATES,PASSIVE_VERB_TAGS
+    DIR_BAVLI, DIR_YERUSHALMI,VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
+    EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS, PASSIVE_VERB_TAGS
 )
 
 # parse to (Masekhet, Page, Side, Line)
@@ -22,35 +22,47 @@ def parse_url_location(url_string):
 
 def load_data():
     """
-    Loads and concatenates only the explicitly listed tractate CSV files 
-    from the Bavli and Yerushalmi directories based on config.py selections.
+    Automatically scans the Bavli and Yerushalmi directories, identifies 
+    overlapping tractates based on naming format, and loads them dynamically.
     """
-    dir_bavli = os.path.join('Data', 'csv_Bavli')
-    dir_yerushalmi = os.path.join('Data', 'csv_Yerushalmi')
+    # 1. סריקת קבצי ה-CSV הקיימים בפועל בתיקיות
+    _files_bavli = [f for f in os.listdir(DIR_BAVLI) if f.endswith('.csv')] if os.path.exists(DIR_BAVLI) else []
+    _files_yerushalmi = [f for f in os.listdir(DIR_YERUSHALMI) if f.endswith('.csv')] if os.path.exists(DIR_YERUSHALMI) else []
+
+    # 2. פונקציות עזר פנימיות לנרמול וחילוץ קוד המסכת
+    def _get_bavli_code(filename):
+        return filename.replace('df_', '').replace('_csv.csv', '')
+
+    def _get_yer_code(filename):
+        return filename.replace('df_yer_', '').replace('_csv.csv', '')
+
+    # 3. מיפוי קודים לקבצים מקוריים וחישוב חיתוך המסכתות המשותפות
+    _bavli_map = {_get_bavli_code(f): f for f in _files_bavli}
+    _yer_map = {_get_yer_code(f): f for f in _files_yerushalmi}
+
+    _shared_codes = set(_bavli_map.keys()) & set(_yer_map.keys())
+
+    # 4. בניית רשימת קבצים משותפים סופית
+    bavli_tractates_dynamic = [_bavli_map[code] for code in _shared_codes]
+    yerushalmi_tractates_dynamic = [_yer_map[code] for code in _shared_codes]
     
-    # Load explicit Bavli files
+    # טעינת קבצי הבבלי החופפים
     list_bavli = []
-    print("Loading selected Bavli tractates...")
-    for filename in BAVLI_TRACTATES:
-        full_path = os.path.join(dir_bavli, filename)
+    print(f"Loading {len(bavli_tractates_dynamic)} shared Bavli tractates automatically...")
+    for filename in bavli_tractates_dynamic:
+        full_path = os.path.join(DIR_BAVLI, filename)
         if os.path.exists(full_path):
-            print(f"  -> Successfully loaded: {filename}")
             list_bavli.append(pd.read_csv(full_path))
-        else:
-            print(f"  Warning!!! Listed file {filename} was not found in {dir_bavli}")
             
     df_b = pd.concat(list_bavli, ignore_index=True) if list_bavli else pd.DataFrame()
     
-    # Load explicit Yerushalmi files
+    # טעינת קבצי הירושלמי החופפים
     list_yer = []
-    print("Loading selected Yerushalmi tractates...")
-    for filename in YERUSHALMI_TRACTATES:
-        full_path = os.path.join(dir_yerushalmi, filename)
+    print(f"Loading {len(yerushalmi_tractates_dynamic)} shared Yerushalmi tractates automatically...")
+    for filename in yerushalmi_tractates_dynamic:
+        full_path = os.path.join(DIR_YERUSHALMI, filename)
         if os.path.exists(full_path):
-            print(f"  -> Successfully loaded: {filename}")
             list_yer.append(pd.read_csv(full_path))
-        else:
-            print(f"  Warning!!! Listed file {filename} was not found in {dir_yerushalmi}")
             
     df_y = pd.concat(list_yer, ignore_index=True) if list_yer else pd.DataFrame()
 

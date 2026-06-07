@@ -1,28 +1,82 @@
-import pandas as pd
 import os
+import pandas as pd
 
+# ייבוא הקבועים והתגיות בלבד מתוך קובץ הקונפיגורציה החדש
 from config import (
+    DIR_BAVLI, DIR_YERUSHALMI,
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
     EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, CONSTRUCT_STATE_TAGS,
     PLURAL_TAGS, SINGULAR_TAGS, ADJECTIVE_TAGS, ADVERB_TAGS,
     PERSONAL_PRONOUN_TAGS, PRONOMINAL_SUFFIX_TAGS, NUMERAL_TAGS,
     INTERJECTION_TAGS, UNRESOLVED_TEXT_TAGS, MANUSCRIPT_GAP_TAGS,
-    BAVLI_TRACTATES, YERUSHALMI_TRACTATES, IRRELEVANT_TAGS,PASSIVE_VERB_TAGS
+    IRRELEVANT_TAGS, PASSIVE_VERB_TAGS
 )
 
-# Load only the explicitly listed files for the audit
-dir_bavli = os.path.join('Data', 'csv_Bavli')
-dir_yerushalmi = os.path.join('Data', 'csv_Yerushalmi')
+# =========================================================================
+# DYNAMIC TRACTATE EXTRACTION LOGIC
+# =========================================================================
+
+# 1. סריקת קבצי ה-CSV בפועל מהתיקיות שהוגדרו ב-Config
+_files_bavli = [f for f in os.listdir(DIR_BAVLI) if f.endswith('.csv')] if os.path.exists(DIR_BAVLI) else []
+_files_yerushalmi = [f for f in os.listdir(DIR_YERUSHALMI) if f.endswith('.csv')] if os.path.exists(DIR_YERUSHALMI) else []
+
+# 2. פונקציות עזר פנימיות לנרמול וחילוץ קוד המסכת
+def _get_bavli_code(filename):
+    return filename.replace('df_', '').replace('_csv.csv', '')
+
+def _get_yer_code(filename):
+    return filename.replace('df_yer_', '').replace('_csv.csv', '')
+
+# 3. מיפוי קודים לקבצים מקוריים וחישוב קבוצות
+_bavli_map = {_get_bavli_code(f): f for f in _files_bavli}
+_yer_map = {_get_yer_code(f): f for f in _files_yerushalmi}
+
+_bavli_codes = set(_bavli_map.keys())
+_yer_codes = set(_yer_map.keys())
+
+_shared_codes = _bavli_codes & _yer_codes
+_unique_to_bavli = _bavli_codes - _yer_codes
+_unique_to_yerushalmi = _yer_codes - _bavli_codes
+
+# 4. יצירת רשימות המסכתות המשותפות הסופיות לשימוש בקובץ זה
+BAVLI_TRACTATES = [_bavli_map[code] for code in _shared_codes]
+YERUSHALMI_TRACTATES = [_yer_map[code] for code in _shared_codes]
+
+# =========================================================================
+# PRINT TRACTATES AUDIT REPORT
+# =========================================================================
+print("\n=========================================================")
+print("             DATA TRACTATES AUDIT REPORT                 ")
+print("=========================================================")
+
+print(f"\n[+] SHARED TRACTATES ({len(_shared_codes)}):")
+print("---------------------------------------------------------")
+for code in sorted(_shared_codes):
+    print(f"  - Code: {code:<5} | Bavli: {_bavli_map[code]:<18} | Yerushalmi: {_yer_map[code]}")
+
+if _unique_to_bavli:
+    print(f"\n[-] UNIQUE TO BAVLI ({len(_unique_to_bavli)}) - OMITTED FROM TRAINING:")
+    print("---------------------------------------------------------")
+    for code in sorted(_unique_to_bavli):
+        print(f"  - Code: {code:<5} | File: {_bavli_map[code]}")
+
+if _unique_to_yerushalmi:
+    print(f"\n[-] UNIQUE TO YERUSHALMI ({len(_unique_to_yerushalmi)}) - OMITTED FROM TRAINING:")
+    print("---------------------------------------------------------")
+    for code in sorted(_unique_to_yerushalmi):
+        print(f"  - Code: {code:<5} | File: {_yer_map[code]}")
+
+print("=========================================================\n")
 
 all_dfs = []
 
 for filename in BAVLI_TRACTATES:
-    full_path = os.path.join(dir_bavli, filename)
+    full_path = os.path.join(DIR_BAVLI, filename)
     if os.path.exists(full_path):
         all_dfs.append(pd.read_csv(full_path))
 
 for filename in YERUSHALMI_TRACTATES:
-    full_path = os.path.join(dir_yerushalmi, filename)
+    full_path = os.path.join(DIR_YERUSHALMI, filename)
     if os.path.exists(full_path):
         all_dfs.append(pd.read_csv(full_path))
 
