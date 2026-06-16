@@ -60,7 +60,7 @@ def parse_word(response):
 class CalWordSpider(scrapy.Spider):
     name = 'cal'
     start_urls = [
-        'https://cal.huc.edu/get_a_chapter.php?file=71027'
+        'https://cal.huc.edu/get_a_chapter.php?file=71037'
     ]
 
     def parse(self, response):
@@ -79,7 +79,7 @@ class CalWordSpider(scrapy.Spider):
 # Run the spider
 process = CrawlerProcess(settings={
     'FEEDS': {
-        'Bavli_horayot_27.json': {
+        'Masekhet_split_37.json': {
             'format': 'json',
             'overwrite': True
         }

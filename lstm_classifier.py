@@ -7,7 +7,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
 import os
-
+import joblib # <--- הוספנו: ספרייה לשמירת המנרמל (Scaler)
 
 # Loading and initial processing of the data
 def load_and_preprocess(file_path):
@@ -38,8 +38,8 @@ def load_and_preprocess(file_path):
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # returning normalized features & label vector & encoder
-    return X_scaled, y, le
+    # returning normalized features & label vector & encoder AND scaler (so we can save it)
+    return X_scaled, y, le, scaler # <--- הוספנו: החזרת ה-scaler
 
 
 # Creating sequences - The "sliding window"
@@ -95,8 +95,8 @@ if __name__ == "__main__":
         print(f"Error: {file_path} not found. Please run the preprocessing script first.")
     else:
 
-        # Load & scale the flat data
-        X_scaled, y, le = load_and_preprocess(file_path)
+        # Load & scale the flat data (now unpacking the scaler too)
+        X_scaled, y, le, scaler = load_and_preprocess(file_path) # <--- הוספנו: קבלת ה-scaler
         
         # Divide data chronologically but balanced per class (80% Train, 20% Test)
         # Separate the data by target to ensure both classes exist in Train and Test sets
@@ -183,3 +183,20 @@ if __name__ == "__main__":
         
         print("\nComprehensive Classification Metrics Report:")
         print(classification_report(y_test, y_pred, target_names=le.classes_))
+
+        # =================================================================
+        # שורות השמירה שהוספנו: שומרים את המודל ואת המנרמל לשימוש על המגילות
+        # =================================================================
+        print("\nSaving model and scaler for future use on Dead Sea Scrolls...")
+        
+        model_path = os.path.join('Data', 'lstm_model.h5')
+        scaler_path = os.path.join('Data', 'scaler.pkl')
+        le_path = os.path.join('Data', 'label_encoder.pkl')
+        
+        model.save(model_path)
+        joblib.dump(scaler, scaler_path)
+        joblib.dump(le, le_path)
+        
+        print(f"  - Model saved to: {model_path}")
+        print(f"  - Scaler saved to: {scaler_path}")
+        print(f"  - Encoder saved to: {le_path}")
