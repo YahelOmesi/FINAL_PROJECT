@@ -1,22 +1,20 @@
 import pandas as pd
 import re
 import os
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
     EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS, PASSIVE_VERB_TAGS
 )
 
-DIR_SCROLLS = os.path.join('Data', 'csv_Scrolls')
+# מעודכן: יוצאים מתיקיית Features_Extractor אל תיקיית האב ואז נכנסים ל-Data
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DIR_SCROLLS = os.path.join(base_dir, 'Data', 'csv_Scrolls')
 
 def parse_scroll_location(url_string):
-    """
-    מחלץ את המגילה, העמודה והשורה מתוך הכתובת של אתר CAL
-    לדוגמה: מתוך coord=4400106072207 יחלץ:
-    scroll_id = 44001, column = 06, line = 07
-    """
     match = re.search(r'coord=(\d+)', str(url_string))
     if match:
         coord = match.group(1)
@@ -25,13 +23,9 @@ def parse_scroll_location(url_string):
             column = coord[5:7]
             line = coord[7:9]
             return pd.Series([scroll_id, column, line])
-    
     return pd.Series(['0', '0', '0']) 
 
 def load_data():
-    """
-    קורא את קבצי ה-CSV של המגילות מהתיקייה החדשה שלנו
-    """
     _files_scrolls = [f for f in os.listdir(DIR_SCROLLS) if f.endswith('.csv')] if os.path.exists(DIR_SCROLLS) else []
     
     list_scrolls = []
@@ -40,33 +34,27 @@ def load_data():
         full_path = os.path.join(DIR_SCROLLS, filename)
         if os.path.exists(full_path):
             df_temp = pd.read_csv(full_path)
-            # שמירת שם המגילה לצורך קיבוץ נתונים
             df_temp['scroll_name'] = filename.replace('.csv', '')
             list_scrolls.append(df_temp)
             
     df = pd.concat(list_scrolls, ignore_index=True) if list_scrolls else pd.DataFrame()
 
     if not df.empty:
-        # מחלץ את העמודה והשורה מה-URL
         df[['scroll_id', 'column', 'line']] = df['url'].apply(parse_scroll_location)
-
     return df
 
 def extract_features(group):
-    # חיבור התגיות בדיוק כמו בתלמוד
+    # (הפונקציה נשארת זהה למה שהיה לך, אין צורך לשנות את המתמטיקה)
     lex_text = " ".join(group['merged_lexicon'].fillna('').astype(str).tolist()).lower()
     lex_tokens = lex_text.split()
-    
     word_count = len(group) 
     if word_count == 0: return pd.Series() 
     
     plural_count = sum(1 for t in lex_tokens if t in PLURAL_TAGS)
     singular_count = sum(1 for t in lex_tokens if t in SINGULAR_TAGS)
     total_numbers = plural_count + singular_count
-
     verb_indices = [i for i, t in enumerate(lex_tokens) if t in VERB_TAGS]
     verb_count_total = len(verb_indices)
-    
     v_then_noun_count = 0
     v_then_prep_count = 0
     
@@ -78,7 +66,6 @@ def extract_features(group):
                     v_then_noun_count += 1
                 elif next_tag in PREPOSITION_TAGS:
                     v_then_prep_count += 1
-        
         v_n_ratio = round(v_then_noun_count / verb_count_total, 4)
         v_p_ratio = round(v_then_prep_count / verb_count_total, 4)
     else:
@@ -94,26 +81,23 @@ def extract_features(group):
         'passive_voice_ratio': round(sum(1 for t in lex_tokens if t in PASSIVE_VERB_TAGS) / word_count, 4),        
         'plural_ratio': round(plural_count / total_numbers, 4) if total_numbers > 0 else 0.0,
         'line_length': word_count,
-        # שימוש בעמודת text כיוון שבמגילות אין לנו text_transformed
         'avg_word_len': round(group['text'].astype(str).apply(len).mean(), 4),
         'v_then_noun_ratio': v_n_ratio,
         'v_then_prep_ratio': v_p_ratio
     }
-
     return pd.Series(features)
 
 if __name__ == "__main__":
     raw_df = load_data()
     print("Extracting features for the Dead Sea Scrolls...")
     
-    # קיבוץ לפי מגילה, עמודה ושורה במקום מסכת ודף
     group_cols = ['scroll_name', 'column', 'line']
     final_table = raw_df.groupby(group_cols, group_keys=False).apply(extract_features).reset_index()
     
-    # Setting result paths
-    csv_output = os.path.join('Data', 'ready_for_classifier_scrolls.csv')
+    # שימוש ב-base_dir כדי להבטיח נתיב מוחלט ומדויק לתיקייה החדשה
+    output_dir = os.path.join(base_dir, 'Data', 'Ready_For_Classifier')
+    os.makedirs(output_dir, exist_ok=True)
+    csv_output = os.path.join(output_dir, 'ready_for_classifier_scrolls.csv')
 
     final_table.to_csv(csv_output, index=False, encoding='utf-8-sig')
-    
-    print(f"\nSuccess! File created in the 'Data' folder:")
-    print(f"   -CSV file for the model: {csv_output}")
+    print(f"\nSuccess! File created in: {csv_output}")

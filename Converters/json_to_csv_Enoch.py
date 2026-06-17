@@ -2,8 +2,8 @@ import pandas as pd
 import json
 import os
 
-# רשימת המגילות שלכן
-scrolls = ['1QapGen_Genesis_Apocryphon', '11QtgJob_Job_Scroll']
+# הקובץ המרוכז של ספר חנוך
+files = ['Enoch_All']
 
 # רשימת העמודות המדויקת והזהה לחלוטין למבנה של התלמוד
 columns = [
@@ -12,14 +12,13 @@ columns = [
     'merged_lexicon', 'merged_meanings'
 ]
 
-# נתיב תיקיית היעד ל-CSV - בתוך תיקיית האב Data
-output_folder = 'Data/csv_Scrolls'
-# מוודא שהתיקייה קיימת, ואם לא - יוצר אותה
+# נתיב תיקיית היעד ל-CSV - יצרתי תיקייה ייעודית לחנוך
+output_folder = '../Data/csv_Enoch'
 os.makedirs(output_folder, exist_ok=True)
 
-for name in scrolls:
-    # בניית הנתיב לקובץ ה-JSON - ניווט אל תוך Data ואז Data_Scrolls
-    json_path = f'Data/Data_Scrolls/{name}.json'
+for name in files:
+    # ניווט אל תוך תיקיית חנוך החדשה שיצרנו
+    json_path = f'../Data/Data_Enoch/{name}.json'
     
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
@@ -27,16 +26,24 @@ for name in scrolls:
         
         df = pd.DataFrame(data)
         
-        # בניית העמודות הנדרשות למודל על בסיס החילוץ החדש
+        # merged_lexicon מקבל את ה-POS המלא שלנו מ-lexicon_0
         df['merged_lexicon'] = df.get('lexicon_0', None)
-        df['Lema'] = df.get('split_word_1', None) 
+        
+        # --- התיקון הקריטי ל-Lema עבור ספר חנוך ---
+        # לוקחים את split_word_0 (שם נמצאת המילה), ואם יש פסיק חותכים ולוקחים רק את הראשונה
+        if 'split_word_0' in df.columns:
+            df['Lema'] = df['split_word_0'].apply(
+                lambda x: str(x).split(',')[0].strip() if pd.notnull(x) else None
+            )
+        else:
+            df['Lema'] = None
         
         # חיבור משמעויות עם מפריד | בדיוק כמו בתלמוד
         df['merged_meanings'] = df[['meaning_0', 'meaning_1', 'meaning_2', 'meaning_3']].apply(
             lambda x: ' | '.join([str(val) for val in x if pd.notnull(val)]), axis=1
         )
         
-        # וידוא שכל עמודות התלמוד קיימות (גם אם הן ריקות)
+        # וידוא שכל עמודות התלמוד קיימות (גם אם הן ריקות) כדי שהמודל לא יקרוס
         for col in columns:
             if col not in df.columns:
                 df[col] = None
@@ -44,7 +51,7 @@ for name in scrolls:
         # סידור העמודות בסדר המדויק של התלמוד
         df = df[columns]
         
-        # בניית הנתיב לשמירת ה-CSV בתוך Data/csv_Scrolls עם השם המדויק של המגילה
+        # בניית הנתיב לשמירת ה-CSV 
         csv_path = f'{output_folder}/{name}.csv'
         
         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
@@ -53,4 +60,4 @@ for name in scrolls:
     except FileNotFoundError:
         print(f'שגיאה: לא מצאתי את קובץ ה-JSON בנתיב {json_path}. ודאו שהשם והמיקום מדויקים.')
     except Exception as e:
-        print(f'שגיאה בהמרת המגילה {name}: {e}')
+        print(f'שגיאה בהמרת הקובץ {name}: {e}')
