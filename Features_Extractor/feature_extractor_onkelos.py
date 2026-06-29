@@ -6,6 +6,7 @@ import sys
 # הוספת נתיב לתיקיית האב כדי שנוכל לייבא את config.py
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from Features_Extractor.tag_normalizer import expand_tag
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
     EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS, PASSIVE_VERB_TAGS
@@ -57,8 +58,9 @@ def load_data():
 
 def extract_features_for_group(group):
     # סינון ערכים ריקים
-    lex_tokens = [str(t) for t in group['merged_lexicon'] if pd.notnull(t)]
-    word_count = len(lex_tokens)
+    raw_tokens = [str(t) for t in group['merged_lexicon'] if pd.notnull(t)]
+    lex_tokens = [expanded for raw in group['merged_lexicon'].dropna().astype(str).str.lower().tolist() for t in raw.split() for expanded in expand_tag(t)]
+    word_count = len(raw_tokens)
     
     if word_count == 0:
         return pd.Series()

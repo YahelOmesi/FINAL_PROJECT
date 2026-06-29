@@ -5,6 +5,8 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from Features_Extractor.tag_normalizer import expand_tag
+
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
     EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS, PASSIVE_VERB_TAGS
@@ -59,7 +61,7 @@ def load_data():
 
 def extract_features(group):
     lex_text = " ".join(group['merged_lexicon'].fillna('').astype(str).tolist()).lower()
-    lex_tokens = lex_text.split()
+    lex_tokens = [t for raw in lex_text.split() for t in expand_tag(raw)]
     word_count = len(group) 
     if word_count == 0: return pd.Series() 
     

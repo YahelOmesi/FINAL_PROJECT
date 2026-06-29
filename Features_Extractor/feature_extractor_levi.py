@@ -4,6 +4,7 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from Features_Extractor.tag_normalizer import expand_tag
 from config import (
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
     EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS, PASSIVE_VERB_TAGS
@@ -26,7 +27,7 @@ def parse_levi_location(url_string):
 
 def extract_features_for_group(group):
     word_count = len(group)
-    lex_tokens = " ".join(group['merged_lexicon'].fillna('')).split()
+    lex_tokens = [t for raw in " ".join(group['merged_lexicon'].fillna('').astype(str)).lower().split() for t in expand_tag(raw)]
     total_numbers = len([t for t in lex_tokens if t in PLURAL_TAGS or t in SINGULAR_TAGS])
     plural_count = len([t for t in lex_tokens if t in PLURAL_TAGS])
     
