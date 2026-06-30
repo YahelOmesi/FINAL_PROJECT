@@ -70,5 +70,12 @@ def predict_onkelos():
     df.to_csv(output_path, index=False, encoding='utf-8-sig')
     print(f"Success! Predictions saved to: {output_path}")
 
+    # הדפסת סיכום התוצאות באחוזים
+    print("\nסיכום תוצאות אונקלוס:")
+    # הניחי שעמודת המזהה של אונקלוס נקראת book_id או scroll_name
+    summary_onkelos = df.groupby('book_name')['predicted_dialect'].value_counts(normalize=True)
+    print(summary_onkelos)
+    
+
 if __name__ == "__main__":
     predict_onkelos()

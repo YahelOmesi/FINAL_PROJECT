@@ -71,9 +71,10 @@ def predict_levi():
     df.to_csv(output_path, index=False)
     print(f"Successfully saved predictions to {output_path}")
     
-    # הדפסת סיכום קצר של החלוקה שהתקבלה בטרמינל
-    print("\n--- Prediction Summary for Testament of Levi ---")
-    print(df['result'].value_counts())
+   # הדפסת סיכום התוצאות באחוזים
+    print("\nסיכום תוצאות צוואת לוי:")
+    summary_levi = df.groupby('scroll_name')['result'].value_counts(normalize=True)
+    print(summary_levi)
 
 if __name__ == "__main__":
     predict_levi()
