@@ -20,7 +20,7 @@ files = {
 common_features = [
     'emphatic_ratio', 'absolute_ratio', 'function_words_ratio', 
     'lexical_diversity', 'verb_ratio', 'passive_voice_ratio', 
-    'plural_ratio', 'line_length', 'avg_word_len', 
+    'plural_ratio', # 'line_length', 'avg_word_len', 
     'v_then_noun_ratio', 'v_then_prep_ratio'
 ]
 
@@ -59,6 +59,9 @@ for name, file_path in files.items():
         # טיפול מיוחד בקובץ התלמוד המאוחד
         if name == "Talmud_Merged":
             print("Processing Merged Talmud file...")
+
+            # ⭐⭐⭐ שורת התיקון החדשה שלך: מסננת החוצה את מסכתות 0 ורעשים
+            df = df[~df['masekhet'].astype(str).str.strip().isin(['0', '0000000', '0.0', 'nan'])]
             
             # ❗❗ חשוב: ודאי ששם העמודה כאן תואם לשם האמיתי בקובץ ה-CSV שלך ❗❗
             # החליפי את 'label' בשם העמודה שמפרידה בין בבלי לירושלמי (למשל 'corpus')
@@ -130,6 +133,43 @@ if dfs:
         print("\nDendrogram saved successfully as 'dendrogram_output.png'")
         
         plt.show()
+
+        # === חישוב מרחק קוטבי (Pole-Distance to Centroids) עבור הפוסטר ===
+        print("\n" + "="*40)
+        print("POLE-DISTANCE ANALYSIS (CENTROIDS)")
+        print("="*40)
+        
+        # 1. בידוד וקטורי המאפיינים המנורמלים של הבבלי והירושלמי
+        bavli_rows = final_data_normalized[final_data_normalized.index.str.contains('Bavli')]
+        yerushalmi_rows = final_data_normalized[final_data_normalized.index.str.contains('Yerushalmi')]
+        
+        # 2. חישוב הצנטרואיד (מרכז הקוטב) לכל ניב
+        bavli_centroid = bavli_rows.mean()
+        yerushalmi_centroid = yerushalmi_rows.mean()
+        
+        # 3. חישוב המרחק של הטקסטים החדשים מכל קוטב
+        new_corpora = ['Enoch', 'Onkelos', 'Scrolls', 'Levi']
+        
+        for corpus in new_corpora:
+            # שליפת השורות השייכות לקורפוס הנוכחי
+            corpus_rows = final_data_normalized[final_data_normalized.index.str.contains(corpus)]
+            
+            if not corpus_rows.empty:
+                # חישוב מרכז הקורפוס החדש
+                corpus_centroid = corpus_rows.mean()
+                
+                # חישוב מרחק אוקלידי לשני הקטבים התלמודיים
+                dist_to_bavli = np.linalg.norm(corpus_centroid - bavli_centroid)
+                dist_to_yerushalmi = np.linalg.norm(corpus_centroid - yerushalmi_centroid)
+                
+                closer_to = "Yerushalmi (West)" if dist_to_yerushalmi < dist_to_bavli else "Bavli (East)"
+                
+                print(f"\nCorpus: {corpus}")
+                print(f"  -> Distance to Bavli Centroid (Eastern Pole):  {dist_to_bavli:.4f}")
+                print(f"  -> Distance to Yerushalmi Centroid (Western Pole): {dist_to_yerushalmi:.4f}")
+                print(f"  >> Conclusion: Closer to {closer_to}")
+        print("="*40)
+    
     else:
         print("Not enough data points.")
 else:
