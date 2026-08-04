@@ -11,7 +11,7 @@ PASSIVE_VERB_TAGS = ['ethpeel', 'ethpaal', 'ettaphal', 'ethpay/w', 'ethpolal,', 
 PREPOSITION_TAGS = ['prep', 'preposition', 'p', 'proclitic'] # מילות יחס ואותיות יחס
 CONJUNCTION_TAGS = ['conj', 'conjunction'] # מילות קישור וחיבור
 
-EMPHATIC_STATE_TAGS = ['determined', 'emphatic', 'emphatic"unrecognizable', 'emphaticno'] # מצב מיודע - המלך
+EMPHATIC_STATE_TAGS = ['determined', 'emphatic', 'emphatic"unrecognizable', 'emphaticno'] # מצב מיודע\מודגש - המלך
 ABSOLUTE_STATE_TAGS = ['abs.', 'absolute'] # מצב מוחלט - מלך
 CONSTRUCT_STATE_TAGS = ['construct', 'construct"unrecognizable', 'constructno'] # מצב סמיכות - מלכות שמיים
 
