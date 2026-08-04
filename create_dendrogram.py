@@ -4,31 +4,32 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.spatial.distance import pdist
 import matplotlib.pyplot as plt
 
-# 1. הגדרת הנתיבים המעודכנת
+# Define the input files used in the comparative clustering analysis.
 files = {
-    # הקובץ המאוחד של התלמודים (בהנחה שאת מריצה מתוך תיקיית FINAL_PROJECT)
+    # Combined feature dataset containing both Bavli and Yerushalmi tractates.
     "Talmud_Merged": "Data/ready_for_classifier.csv", 
     
-    # הקבצים החדשים שלכן
+    # Feature and prediction datasets for the additional Aramaic texts.
     "Enoch": "Data/Predictions_Results/enoch_prediction_results.csv",
     "Onkelos": "Data/Predictions_Results/onkelos_prediction_results.csv",
     "Scrolls": "Data/Predictions_Results/scrolls_prediction_results.csv",
     "Levi": "Data/Predictions_Results/levi_predictions_results.csv"
 }
 
-# העמודות המספריות שקיימות בכל הקבצים שלך (הפיצ'רים הלשוניים)
+# Linguistic features shared by all input datasets and used for clustering.
 common_features = [
     'emphatic_ratio', 'absolute_ratio', 'function_words_ratio', 
     'lexical_diversity', 'verb_ratio', 'passive_voice_ratio', 
-    'plural_ratio', # 'line_length', 'avg_word_len', 
+    'plural_ratio', # Additional optional features: 'line_length', 'avg_word_len'
     'v_then_noun_ratio', 'v_then_prep_ratio'
 ]
 
 dfs = []
 
 def process_dataframe(df, name):
-    """פונקציית עזר לעיבוד, קיבוץ והכנת ה-DataFrame לדנדרוגרמה"""
-    # 2. זיהוי דינמי של עמודת השם
+    """Prepare and aggregate a dataset for the hierarchical clustering analysis."""
+
+    # Dynamically identify the column containing the textual unit name.
     if 'scroll_name' in df.columns:
         group_col = 'scroll_name'
     elif 'book_name' in df.columns:
@@ -38,57 +39,56 @@ def process_dataframe(df, name):
     elif 'masekhet' in df.columns:
         group_col = 'masekhet'
     else:
-        group_col = df.columns[0] # גיבוי: ייקח את העמודה הראשונה
+        group_col = df.columns[0] # Use the first column as a fallback identifier.
         
-    # בחירת עמודת השם + המאפיינים המשותפים בלבד
+    # Retain only the group identifier and the linguistic features used in the analysis.
     cols_to_use = [group_col] + common_features
     df_subset = df[cols_to_use]
     
-    # חישוב ממוצע לקבוצה (למשל לפי מסכת או ספר)
+    # Calculate the mean feature values for each tractate, book, or manuscript section.
     df_grouped = df_subset.groupby(group_col).mean()
     
-    # הוספת קידומת לשם הטקסט כדי שנבדיל ביניהם בבירור בדנדרוגרמה
+    # Prefix each group name with its source to produce unambiguous dendrogram labels.
     df_grouped.index = [f"{name}_{idx}" for idx in df_grouped.index]
     return df_grouped
 
-# לולאת טעינת הקבצים
+# Load and process each configured input dataset.
 for name, file_path in files.items():
     try:
         df = pd.read_csv(file_path)
         
-        # טיפול מיוחד בקובץ התלמוד המאוחד
+        # Process the combined Talmudic dataset separately to distinguish the two dialects.
         if name == "Talmud_Merged":
             print("Processing Merged Talmud file...")
 
-            # ⭐⭐⭐ שורת התיקון החדשה שלך: מסננת החוצה את מסכתות 0 ורעשים
+            # Exclude rows with invalid, missing, or placeholder tractate identifiers.
             df = df[~df['masekhet'].astype(str).str.strip().isin(['0', '0000000', '0.0', 'nan'])]
             
-            # ❗❗ חשוב: ודאי ששם העמודה כאן תואם לשם האמיתי בקובץ ה-CSV שלך ❗❗
-            # החליפי את 'label' בשם העמודה שמפרידה בין בבלי לירושלמי (למשל 'corpus')
+            # Column containing the Bavli or Yerushalmi source label.
             type_column = 'target' 
             
             if type_column in df.columns:
-                # פיצול לבבלי (הפונקציה מחפשת את המילה 'bavli')
+                # Extract and aggregate the Bavli tractates.
                 df_bavli = df[df[type_column].str.lower().str.contains('bavli', na=False)]
                 if not df_bavli.empty:
                     grouped_bavli = process_dataframe(df_bavli, "Bavli")
                     dfs.append(grouped_bavli)
                     print(f"Successfully extracted Bavli with {len(grouped_bavli)} groups")
                 
-                # פיצול לירושלמי (הפונקציה מחפשת את המילה 'yerushalmi')
+                # Extract and aggregate the Yerushalmi tractates.
                 df_yerushalmi = df[df[type_column].str.lower().str.contains('yerushalmi', na=False)]
                 if not df_yerushalmi.empty:
                     grouped_yerushalmi = process_dataframe(df_yerushalmi, "Yerushalmi")
                     dfs.append(grouped_yerushalmi)
                     print(f"Successfully extracted Yerushalmi with {len(grouped_yerushalmi)} groups")
             else:
-                # גיבוי במקרה שאין עמודת הפרדה
+                # Process the file as a single dataset when no dialect label column is available.
                 print(f"Warning: Column '{type_column}' not found. Loading as single dataset.")
                 grouped_talmud = process_dataframe(df, "Talmud")
                 dfs.append(grouped_talmud)
                 
         else:
-            # טיפול רגיל בשאר הקבצים החדשים
+            # Apply the standard aggregation procedure to each additional text dataset.
             df_grouped = process_dataframe(df, name)
             dfs.append(df_grouped)
             print(f"Successfully loaded {name} with {len(df_grouped)} groups")
@@ -96,25 +96,25 @@ for name, file_path in files.items():
     except Exception as e:
         print(f"An error occurred with {name}: {e}")
 
-# 3. איחוד וניקוי
+# Combine the processed datasets and prepare them for clustering.
 if dfs:
     final_data = pd.concat(dfs).fillna(0)
     
-    # הסרת עמודות ללא שונות (std = 0)
+    # Remove features with no variance across the combined dataset.
     final_data = final_data.loc[:, final_data.std() > 0]
     
     print(f"\nTotal number of rows for clustering: {len(final_data)}")
     
     if len(final_data) > 1:
-        # 4. נרמול (Standardization)
+        # Standardize each feature to a mean of zero and a standard deviation of one.
         final_data_normalized = (final_data - final_data.mean()) / final_data.std()
         final_data_normalized = final_data_normalized.fillna(0)
 
-        # 5. Clustering (בניית העץ)
+        # Calculate Euclidean distances and construct the hierarchical clustering tree.
         distance_matrix = pdist(final_data_normalized, metric='euclidean')
         Z = linkage(distance_matrix, method='ward')
         
-        # 6. שרטוט
+        # Generate the dendrogram visualization.
         plt.figure(figsize=(16, 9)) 
         dendrogram(
             Z, 
@@ -128,37 +128,37 @@ if dfs:
         plt.ylabel("Euclidean Distance (Ward's Method)", fontsize=12)
         plt.tight_layout()
         
-        # שמירת הגרף לקובץ תמונה (באיכות גבוהה) - יישמר בתיקייה שממנה מורץ הקוד
+        # Save a high-resolution copy of the dendrogram in the current working directory.
         plt.savefig("dendrogram_output.png", dpi=300, bbox_inches='tight')
         print("\nDendrogram saved successfully as 'dendrogram_output.png'")
         
         plt.show()
 
-        # === חישוב מרחק קוטבי (Pole-Distance to Centroids) עבור הפוסטר ===
+        # Calculate the distance of each additional text from the Bavli and Yerushalmi centroids.
         print("\n" + "="*40)
         print("POLE-DISTANCE ANALYSIS (CENTROIDS)")
         print("="*40)
         
-        # 1. בידוד וקטורי המאפיינים המנורמלים של הבבלי והירושלמי
+        # Select the normalized feature vectors belonging to each Talmudic dialect.
         bavli_rows = final_data_normalized[final_data_normalized.index.str.contains('Bavli')]
         yerushalmi_rows = final_data_normalized[final_data_normalized.index.str.contains('Yerushalmi')]
         
-        # 2. חישוב הצנטרואיד (מרכז הקוטב) לכל ניב
+        # Calculate the centroid representing each Talmudic dialect.
         bavli_centroid = bavli_rows.mean()
         yerushalmi_centroid = yerushalmi_rows.mean()
         
-        # 3. חישוב המרחק של הטקסטים החדשים מכל קוטב
+        # Define the additional text collections included in the distance analysis.
         new_corpora = ['Enoch', 'Onkelos', 'Scrolls', 'Levi']
         
         for corpus in new_corpora:
-            # שליפת השורות השייכות לקורפוס הנוכחי
+            # Select all normalized rows associated with the current text collection.
             corpus_rows = final_data_normalized[final_data_normalized.index.str.contains(corpus)]
             
             if not corpus_rows.empty:
-                # חישוב מרכז הקורפוס החדש
+                # Calculate the centroid of the current text collection.
                 corpus_centroid = corpus_rows.mean()
                 
-                # חישוב מרחק אוקלידי לשני הקטבים התלמודיים
+                # Calculate its Euclidean distance from both Talmudic centroids.
                 dist_to_bavli = np.linalg.norm(corpus_centroid - bavli_centroid)
                 dist_to_yerushalmi = np.linalg.norm(corpus_centroid - yerushalmi_centroid)
                 

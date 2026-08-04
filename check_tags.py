@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-# ייבוא הקבועים והתגיות בלבד מתוך קובץ הקונפיגורציה החדש
+# Import the directory paths and grammatical tag categories from the central configuration file.
 from config import (
     DIR_BAVLI, DIR_YERUSHALMI,
     VERB_TAGS, NOUN_TAGS, PREPOSITION_TAGS, CONJUNCTION_TAGS,
@@ -13,21 +13,21 @@ from config import (
 )
 
 # =========================================================================
-# DYNAMIC TRACTATE EXTRACTION LOGIC
+# DYNAMIC TRACTATE EXTRACTION
 # =========================================================================
 
-# 1. סריקת קבצי ה-CSV בפועל מהתיקיות שהוגדרו ב-Config
+# Retrieve the available CSV files from the configured Bavli and Yerushalmi directories.
 _files_bavli = [f for f in os.listdir(DIR_BAVLI) if f.endswith('.csv')] if os.path.exists(DIR_BAVLI) else []
 _files_yerushalmi = [f for f in os.listdir(DIR_YERUSHALMI) if f.endswith('.csv')] if os.path.exists(DIR_YERUSHALMI) else []
 
-# 2. פונקציות עזר פנימיות לנרמול וחילוץ קוד המסכת
+# Normalize the Bavli and Yerushalmi filenames to extract their tractate codes.
 def _get_bavli_code(filename):
     return filename.replace('df_', '').replace('_csv.csv', '')
 
 def _get_yer_code(filename):
     return filename.replace('df_yer_', '').replace('_csv.csv', '')
 
-# 3. מיפוי קודים לקבצים מקוריים וחישוב קבוצות
+# Map each tractate code to its original filename and identify shared and unique tractates.
 _bavli_map = {_get_bavli_code(f): f for f in _files_bavli}
 _yer_map = {_get_yer_code(f): f for f in _files_yerushalmi}
 
@@ -38,13 +38,15 @@ _shared_codes = _bavli_codes & _yer_codes
 _unique_to_bavli = _bavli_codes - _yer_codes
 _unique_to_yerushalmi = _yer_codes - _bavli_codes
 
-# 4. יצירת רשימות המסכתות המשותפות הסופיות לשימוש בקובץ זה
+# Build the final lists of corresponding Bavli and Yerushalmi tractate files.
 BAVLI_TRACTATES = [_bavli_map[code] for code in _shared_codes]
 YERUSHALMI_TRACTATES = [_yer_map[code] for code in _shared_codes]
 
 # =========================================================================
-# PRINT TRACTATES AUDIT REPORT
+# TRACTATE AUDIT REPORT
 # =========================================================================
+
+# Print a report describing the shared tractates and the files excluded from training.
 print("\n=========================================================")
 print("             DATA TRACTATES AUDIT REPORT                 ")
 print("=========================================================")
@@ -68,6 +70,7 @@ if _unique_to_yerushalmi:
 
 print("=========================================================\n")
 
+# Load the shared Bavli and Yerushalmi tractates into a unified collection of DataFrames.
 all_dfs = []
 
 for filename in BAVLI_TRACTATES:
@@ -80,17 +83,18 @@ for filename in YERUSHALMI_TRACTATES:
     if os.path.exists(full_path):
         all_dfs.append(pd.read_csv(full_path))
 
+# Combine all loaded tractates into one DataFrame.
 df = pd.concat(all_dfs, ignore_index=True) if all_dfs else pd.DataFrame()
 
-# Extract all lexicon text, normalize to lowercase and split into individual tokens
+# Extract the complete lexicon text, normalize it to lowercase, and split it into individual tokens.
 all_lex_text = " ".join(df['merged_lexicon'].fillna('').astype(str).tolist()).lower()
 all_tokens = all_lex_text.split()
 
-# Convert the token list to a set to remove duplicates, then sort alphabetically
+# Remove duplicate tokens and sort the resulting grammatical tags alphabetically.
 unique_tags = sorted(list(set(all_tokens)))
 total_unique_count = len(unique_tags)
 
-# Map the unique tags into their respective configurations
+# Match the existing tags against their corresponding grammatical categories.
 m_verbs = [t for t in unique_tags if t in VERB_TAGS]
 m_passive = [t for t in unique_tags if t in PASSIVE_VERB_TAGS]
 m_nouns = [t for t in unique_tags if t in NOUN_TAGS]
@@ -111,6 +115,7 @@ m_unres = [t for t in unique_tags if t in UNRESOLVED_TEXT_TAGS]
 m_gaps = [t for t in unique_tags if t in MANUSCRIPT_GAP_TAGS]
 m_irrelevant = [t for t in unique_tags if t in IRRELEVANT_TAGS]
 
+# Calculate the total number of tags matched to the configured categories.
 total_mapped_tags = (
     len(m_verbs) + len(m_nouns) + len(m_preps) + len(m_conjs) +
     len(m_emph) + len(m_abs) + len(m_const) + len(m_plur) +
@@ -119,7 +124,7 @@ total_mapped_tags = (
     len(m_gaps) + len(m_irrelevant)
 )
 
-# Compile all configurations into a single list to find unmapped leftovers
+# Combine all configured tag categories to identify tags that remain unmapped.
 all_lists = (
     VERB_TAGS + NOUN_TAGS + PREPOSITION_TAGS + CONJUNCTION_TAGS +
     EMPHATIC_STATE_TAGS + ABSOLUTE_STATE_TAGS + CONSTRUCT_STATE_TAGS +
@@ -130,7 +135,7 @@ all_lists = (
 )
 unmapped_tags = [t for t in unique_tags if t not in all_lists]
 
-# Print the comprehensive summary and sanity check to the console
+# Print a comprehensive mapping summary and verify whether all unique tags were categorized.
 print("========================================================")
 print("ATOMIC GRAMMAR TAGS EXHAUSTIVE REPORT")
 print("========================================================")
@@ -154,5 +159,6 @@ else:
     print(f"SANITY CHECK WARNING: There are {len(unmapped_tags)} tags left unmapped.")
     print(unmapped_tags)
 
+# Print the full alphabetical inventory of grammatical tags found in the dataset.
 print("\nFull Alphabetical List of Existing Tags:")
 print(unique_tags)
