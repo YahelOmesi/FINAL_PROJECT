@@ -4,7 +4,7 @@ import json
 import os
 import re
 
-# הגדרת המקטעים של ספר חנוך לפי האתר של CAL
+# Configuration for the Aramaic Enoch manuscript sections and their CAL identifiers.
 ENOCH_CONFIG = {
     '4Q201_4QEn_a': '44403201',
     '4Q202_4QEn_b': '44403202',
@@ -15,10 +15,12 @@ ENOCH_CONFIG = {
     '4Q212_4QEn_g': '44403212'
 }
 
+# Extract grammatical, lexical, semantic, and lemma information
+# associated with an individual word.
 def parse_word(response):
     word = response.meta['word']
 
-    # --- התיקון: חילוץ תגיות דקדוק בשיטת המגילות ---
+    # Extract grammatical tags from the POS and binary-tag elements.
     pos_tags = response.xpath('//pos//text()').getall()
     bin_tags = response.xpath('//span[@class="bin"]//text()').getall()
     all_grammar_tags = [t.strip() for t in pos_tags + bin_tags if t.strip()]
@@ -28,7 +30,7 @@ def parse_word(response):
     else:
         word['lexicon_0'] = None
         
-    # המשך חילוץ לקסיקונים נוספים
+    # Extract additional lexicon entries located after the horizontal separators.
     for i in range(1, 5):
         lex = response.xpath(f'//body/hr[{i}]/following-sibling::text()').get()
         if lex and lex.strip() != '':
@@ -36,7 +38,7 @@ def parse_word(response):
         else:
             word[f'lexicon_{i}'] = None
 
-    # חילוץ המשמעויות (Meanings)
+    # Extract available English meanings from the primary meaning elements.
     translation_list = response.xpath('//span[@class="mgT"]/text()').getall()
     if translation_list:
         cleaned_translations = []
@@ -47,12 +49,13 @@ def parse_word(response):
         for i in range(4):
             word[f'meaning_{i}'] = cleaned_translations[i] if i < len(cleaned_translations) else None
     else:
+        # Fall back to alternative meaning elements when primary meanings are unavailable.
         meanings = response.xpath('//span[@class="mgP"]/text()').getall()
         meanings = [m.strip() for m in meanings if m.strip()]
         for i in range(4):
             word[f'meaning_{i}'] = meanings[i] if i < len(meanings) else None
 
-    # חילוץ פיצול מילים (Split Words)
+    # Extract the individual components of words divided into multiple lemmas.
     split_words = response.xpath('//span[@class="lem"]/font/text()').getall()
     split_words = [w.strip() for w in split_words if w.strip()]
     for i in range(4):
@@ -60,15 +63,18 @@ def parse_word(response):
 
     yield word
 
+# Spider responsible for collecting word-level data from the Enoch manuscript sections.
 class EnochSpider(scrapy.Spider):
     name = 'enoch_spider'
     
     def start_requests(self):
+        # Generate one request for each configured manuscript section.
         for scroll_name, base_code in ENOCH_CONFIG.items():
             url = f"https://cal.huc.edu/get_a_chapter.php?file={base_code}&cset=H"
             yield scrapy.Request(url=url, meta={'scroll_name': scroll_name}, callback=self.parse)
 
     def parse(self, response):
+        # Extract each word and request its detailed CAL entry.
         scroll_name = response.meta['scroll_name']
         for el in response.css('tr > td:nth-child(2) > a'):
             word = {
@@ -82,18 +88,21 @@ class EnochSpider(scrapy.Spider):
                 callback=parse_word
             )
 
-# Pipeline ששומר את כל הקבצים בקובץ JSON אחד מרוכז
+# Pipeline that stores all collected Enoch records in a single JSON file.
 class SingleJsonWriterPipeline:
     def open_spider(self, spider):
+        # Create the output directory if it does not already exist.
         self.output_dir = os.path.join('..', 'Data', 'Data_Enoch')
         os.makedirs(self.output_dir, exist_ok=True)
         
+        # Create the output file and begin the JSON array.
         self.file_path = os.path.join(self.output_dir, 'Enoch_All.json')
         self.file = open(self.file_path, 'w', encoding='utf-8')
         self.file.write('[\n')
         self.first_item = True
 
     def process_item(self, item, spider):
+        # Separate consecutive JSON objects with a comma.
         if not self.first_item:
             self.file.write(',\n')
         else:
@@ -104,6 +113,7 @@ class SingleJsonWriterPipeline:
         return item
 
     def close_spider(self, spider):
+        # Close the JSON array and release the output file.
         self.file.write('\n]')
         self.file.close()
 

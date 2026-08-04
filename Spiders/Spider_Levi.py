@@ -4,7 +4,7 @@ import json
 import os
 import re
 
-# הגדרת המקטעים של צוואת לוי
+# Configuration for the Aramaic Levi manuscript sections and their CAL identifiers.
 LEVI_CONFIG = {
     '4Q213_4QLevi_a': '44406001',
     '4Q213a_4QLevi_b': '44406002',
@@ -15,7 +15,8 @@ LEVI_CONFIG = {
     '1Q21_1QTLevi': '44406021'
 }
 
-# פונקציה לטעינת ה-URLs שכבר הורדו כדי למנוע כפילויות ולעצור/להמשיך
+# Load previously downloaded word URLs to prevent duplicate records
+# and allow the crawling process to resume after an interruption.
 def load_already_downloaded_urls():
     file_path = os.path.join('..', 'Data', 'Data_Levi', 'Levi_All.json')
     if not os.path.exists(file_path):
@@ -27,8 +28,12 @@ def load_already_downloaded_urls():
         except:
             return set()
 
+# Extract the grammatical, lexical, semantic, and lemma information
+# associated with an individual word.
 def parse_word(response):
     word = response.meta['word']
+
+    # Extract grammatical tags from the POS and binary-tag elements.
     pos_tags = response.xpath('//pos//text()').getall()
     bin_tags = response.xpath('//span[@class="bin"]//text()').getall()
     all_grammar_tags = [t.strip() for t in pos_tags + bin_tags if t.strip()]
@@ -37,17 +42,20 @@ def parse_word(response):
         word['lexicon_0'] = " ".join(all_grammar_tags)
     else:
         word['lexicon_0'] = None
-        
+
+    # Extract additional lexicon entries located after the horizontal separators.
     for i in range(1, 5):
         lex = response.xpath(f'//body/hr[{i}]/following-sibling::text()').get()
         word[f'lexicon_{i}'] = lex.strip() if lex and lex.strip() != '' else None
 
+    # Extract available English meanings and discard empty or numeric values.
     translation_list = response.xpath('//span[@class="mgT"]/text()').getall()
     if translation_list:
         cleaned = [t.strip() for t in translation_list if t.strip() and not re.match(r'^\d+$', t)]
         for i in range(4):
             word[f'meaning_{i}'] = cleaned[i] if i < len(cleaned) else None
-    
+
+    # Extract the individual components of words divided into multiple lemmas.
     split_words = response.xpath('//span[@class="lem"]//text()').getall()
     split_words = [w.strip() for w in split_words if w.strip()]
     for i in range(4):
@@ -55,10 +63,12 @@ def parse_word(response):
 
     yield word
 
+# Spider responsible for collecting word-level data from the Levi manuscript sections.
 class LeviSpider(scrapy.Spider):
     name = 'levi_spider'
     
     def start_requests(self):
+        # Load existing URLs before generating requests for the configured sections.
         self.downloaded_urls = load_already_downloaded_urls()
         for name, code in LEVI_CONFIG.items():
             url = f"https://cal.huc.edu/get_a_chapter.php?file={code}"
@@ -68,6 +78,8 @@ class LeviSpider(scrapy.Spider):
         scroll_name = response.meta['scroll_name']
         for el in response.css('tr > td:nth-child(2) > a'):
             url = el.xpath('@href').get()
+
+            # Skip words that have already been stored in the output file.
             if url in self.downloaded_urls:
                 continue
                 
@@ -78,12 +90,15 @@ class LeviSpider(scrapy.Spider):
                 callback=parse_word
             )
 
+# Pipeline that stores all collected Levi records in a single JSON file.
 class SingleJsonWriterPipeline:
     def open_spider(self, spider):
+        # Create the output directory if it does not already exist.
         self.output_dir = os.path.join('..', 'Data', 'Data_Levi')
         os.makedirs(self.output_dir, exist_ok=True)
         self.file_path = os.path.join(self.output_dir, 'Levi_All.json')
-        # פתיחה ב-append אם הקובץ קיים, כדי להוסיף עליו
+
+        # Open an existing file in append mode or create a new output file.
         file_exists = os.path.exists(self.file_path)
         self.file = open(self.file_path, 'a' if file_exists else 'w', encoding='utf-8')
         if not file_exists:
@@ -91,6 +106,7 @@ class SingleJsonWriterPipeline:
         self.first_item = not file_exists
 
     def process_item(self, item, spider):
+        # Separate consecutive JSON objects with a comma.
         if not self.first_item:
             self.file.write(',\n')
         self.first_item = False
@@ -99,6 +115,7 @@ class SingleJsonWriterPipeline:
         return item
 
     def close_spider(self, spider):
+        # Close the JSON array and release the output file.
         self.file.write('\n]')
         self.file.close()
 
