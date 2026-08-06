@@ -2,44 +2,45 @@ import pandas as pd
 import json
 import os
 
-# רשימת חמשת חומשי תורה של תרגום אונקלוס (בדיוק לפי שמות קבצי ה-JSON שיצרנו)
+# Define the five Targum Onkelos books according to their generated JSON filenames.
 onkelos_books = [
-    'TgO_Genesis', 
-    'TgO_Exodus', 
-    'TgO_Leviticus', 
-    'TgO_Numbers', 
+    'TgO_Genesis',
+    'TgO_Exodus',
+    'TgO_Leviticus',
+    'TgO_Numbers',
     'TgO_Deuteronomy'
 ]
 
-# רשימת העמודות המדויקת והזהה לחלוטין למבנה של התלמוד
+# Define the output columns in the same structure used by the Talmudic datasets.
 columns = [
-    'text', 'url', 'lexicon_0', 'lexicon_1', 'lexicon_2', 'lexicon_3', 'lexicon_4', 
-    'meaning_0', 'meaning_1', 'meaning_2', 'meaning_3', 'text_transformed', 'Lema', 
+    'text', 'url', 'lexicon_0', 'lexicon_1', 'lexicon_2', 'lexicon_3', 'lexicon_4',
+    'meaning_0', 'meaning_1', 'meaning_2', 'meaning_3', 'text_transformed', 'Lema',
     'merged_lexicon', 'merged_meanings'
 ]
 
-# נתיבי התיקיות
-# הסקריפט יושב ב-Converters, ולכן אנחנו יורדים רמה אחת אחורה לתיקיית האב ומשם נכנסים ל-Data
+# Define the input and output data directories relative to the Converters folder.
 input_folder = '../Data/Data_Onkelos'
 output_folder = '../Data/csv_Onkelos'
 
-# יצירת תיקיית היעד (csv_Onkelos) אם היא עדיין לא קיימת
+# Create the output directory if it does not already exist.
 os.makedirs(output_folder, exist_ok=True)
 
 for name in onkelos_books:
-    # בניית הנתיב לקובץ ה-JSON
+    # Construct the path to the JSON file for the current book.
     json_path = f'{input_folder}/{name}.json'
-    
+
     try:
+        # Load the word-level records from the JSON file.
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
         df = pd.DataFrame(data)
         
-        # merged_lexicon מקבל את ה-POS המלא שלנו מ-lexicon_0
+        # Use the primary grammatical annotation as the merged lexicon value.
         df['merged_lexicon'] = df.get('lexicon_0', None)
         
-        # חילוץ ה-Lema מתוך split_word_0 (כמו בספר חנוך - לוקח את המילה הראשונה אם יש פסיק)
+        # Extract the primary lemma from the first split-word field.
+        # When multiple values are present, retain only the first comma-separated value.
         if 'split_word_0' in df.columns:
             df['Lema'] = df['split_word_0'].apply(
                 lambda x: str(x).split(',')[0].strip() if pd.notnull(x) else None
@@ -47,23 +48,23 @@ for name in onkelos_books:
         else:
             df['Lema'] = None
         
-        # חיבור משמעויות עם מפריד | בדיוק כמו בתלמוד
+        # Combine all available meanings into a single pipe-separated field.
         df['merged_meanings'] = df[['meaning_0', 'meaning_1', 'meaning_2', 'meaning_3']].apply(
             lambda x: ' | '.join([str(val) for val in x if pd.notnull(val)]), axis=1
         )
         
-        # וידוא שכל עמודות התלמוד קיימות (גם אם הן ריקות) כדי שהמודל לא יקרוס בהמשך
+        # Add any missing columns to preserve compatibility with the Talmudic data structure.
         for col in columns:
             if col not in df.columns:
                 df[col] = None
         
-        # סידור העמודות בסדר המדויק של התלמוד
+        # Arrange the columns in the required classifier-compatible order.
         df = df[columns]
         
-        # בניית הנתיב לשמירת ה-CSV בתוך התיקייה החדשה
+        # Construct the output path for the converted CSV file.
         csv_path = f'{output_folder}/{name}.csv'
         
-        # שמירה בקידוד שמאפשר תמיכה טובה בעברית/ארמית באקסל
+        # Save the converted dataset using an encoding compatible with Hebrew and Aramaic text in Excel.
         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
         print(f'הצלחנו! הקובץ {name}.csv נוצר במיקום: {csv_path}')
         
