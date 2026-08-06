@@ -3,6 +3,7 @@ import re
 import os
 import sys
 
+# Add the project root directory to the Python module search path.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from Features_Extractor.tag_normalizer import expand_tag
@@ -11,11 +12,13 @@ from config import (
     EMPHATIC_STATE_TAGS, ABSOLUTE_STATE_TAGS, PLURAL_TAGS, SINGULAR_TAGS, PASSIVE_VERB_TAGS
 )
 
-# מעודכן: יוצאים מתיקיית Features_Extractor אל תיקיית האב ואז נכנסים ל-Data
+# Define the directory containing the processed Dead Sea Scrolls CSV files.
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIR_SCROLLS = os.path.join(base_dir, 'Data', 'csv_Scrolls')
 
+
 def parse_scroll_location(url_string):
+    # Extract the scroll, column, and line identifiers from the CAL coordinate.
     match = re.search(r'coord=(\d+)', str(url_string))
     if match:
         coord = match.group(1)
@@ -24,41 +27,61 @@ def parse_scroll_location(url_string):
             column = coord[5:7]
             line = coord[7:9]
             return pd.Series([scroll_id, column, line])
-    return pd.Series(['0', '0', '0']) 
+
+    # Return default identifiers when the expected coordinate format is unavailable.
+    return pd.Series(['0', '0', '0'])
+
 
 def load_data():
+    # Retrieve all available Dead Sea Scrolls CSV files from the configured directory.
     _files_scrolls = [f for f in os.listdir(DIR_SCROLLS) if f.endswith('.csv')] if os.path.exists(DIR_SCROLLS) else []
-    
+
     list_scrolls = []
     print(f"Loading {len(_files_scrolls)} Scrolls tractates automatically...")
+
+    # Load each CSV file and preserve its source filename as the scroll name.
     for filename in _files_scrolls:
         full_path = os.path.join(DIR_SCROLLS, filename)
         if os.path.exists(full_path):
             df_temp = pd.read_csv(full_path)
             df_temp['scroll_name'] = filename.replace('.csv', '')
             list_scrolls.append(df_temp)
-            
+        
+    # Combine all loaded scroll records into a single DataFrame.
     df = pd.concat(list_scrolls, ignore_index=True) if list_scrolls else pd.DataFrame()
 
+    # Extract the scroll, column, and line identifiers from each URL.
     if not df.empty:
         df[['scroll_id', 'column', 'line']] = df['url'].apply(parse_scroll_location)
+
     return df
 
+
 def extract_features(group):
-    # (הפונקציה נשארת זהה למה שהיה לך, אין צורך לשנות את המתמטיקה)
+    # Combine the lexical annotations and normalize them to lowercase.
     lex_text = " ".join(group['merged_lexicon'].fillna('').astype(str).tolist()).lower()
+
+    # Expand compound annotations into individual grammatical tags.
     lex_tokens = [t for raw in lex_text.split() for t in expand_tag(raw)]
-    word_count = len(group) 
-    if word_count == 0: return pd.Series() 
-    
+
+    # Use the number of records in the group as the word count for the current line.
+    word_count = len(group)
+    if word_count == 0:
+        return pd.Series()
+
+    # Count plural and singular forms for the plurality feature.
     plural_count = sum(1 for t in lex_tokens if t in PLURAL_TAGS)
     singular_count = sum(1 for t in lex_tokens if t in SINGULAR_TAGS)
     total_numbers = plural_count + singular_count
+
+    # Locate all verb tags within the lexical annotation sequence.
     verb_indices = [i for i, t in enumerate(lex_tokens) if t in VERB_TAGS]
     verb_count_total = len(verb_indices)
+
     v_then_noun_count = 0
     v_then_prep_count = 0
-    
+
+    # Examine the tag immediately following each identified verb.
     if verb_count_total > 0:
         for i in verb_indices:
             if i + 1 < len(lex_tokens):
@@ -67,12 +90,15 @@ def extract_features(group):
                     v_then_noun_count += 1
                 elif next_tag in PREPOSITION_TAGS:
                     v_then_prep_count += 1
+
+        # Calculate transition ratios relative to the total number of verbs.
         v_n_ratio = round(v_then_noun_count / verb_count_total, 4)
         v_p_ratio = round(v_then_prep_count / verb_count_total, 4)
     else:
         v_n_ratio = 0
         v_p_ratio = 0
 
+    # Calculate the linguistic features used by the dialect classifier.
     features = {
         'emphatic_ratio': round(sum(1 for t in lex_tokens if t in EMPHATIC_STATE_TAGS) / word_count, 4),
         'absolute_ratio': round(sum(1 for t in lex_tokens if t in ABSOLUTE_STATE_TAGS) / word_count, 4),
@@ -86,19 +112,23 @@ def extract_features(group):
         'v_then_noun_ratio': v_n_ratio,
         'v_then_prep_ratio': v_p_ratio
     }
+
     return pd.Series(features)
+
 
 if __name__ == "__main__":
     raw_df = load_data()
     print("Extracting features for the Dead Sea Scrolls...")
-    
+
+    # Group records by scroll and textual location before extracting features.
     group_cols = ['scroll_name', 'column', 'line']
     final_table = raw_df.groupby(group_cols, group_keys=False).apply(extract_features).reset_index()
-    
-    # שימוש ב-base_dir כדי להבטיח נתיב מוחלט ומדויק לתיקייה החדשה
+
+    # Create the classifier-ready output directory if it does not already exist.
     output_dir = os.path.join(base_dir, 'Data', 'Ready_For_Classifier')
     os.makedirs(output_dir, exist_ok=True)
     csv_output = os.path.join(output_dir, 'ready_for_classifier_scrolls.csv')
 
+    # Save the extracted feature table as a CSV file.
     final_table.to_csv(csv_output, index=False, encoding='utf-8-sig')
     print(f"\nSuccess! File created in: {csv_output}")
